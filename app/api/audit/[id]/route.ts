@@ -20,5 +20,6 @@ export async function GET(
     logs: row.logs ? JSON.parse(row.logs) : [],
     report: row.report ? JSON.parse(row.report) : null,
     error: row.error,
+    gsc: row.gsc_data ? JSON.parse(row.gsc_data) : null,
   });
 }

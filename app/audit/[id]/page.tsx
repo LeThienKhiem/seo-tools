@@ -5,6 +5,7 @@ import { ScoreRing, ScoreBar } from "@/components/Score";
 import { Badge, StatusBadge } from "@/components/Badge";
 import { ResultPanel } from "@/components/ResultPanel";
 import { AuditSteps } from "@/components/StepNav";
+import { AuditProgress } from "@/components/AuditProgress";
 import {
   AlertCircle,
   ExternalLink,
@@ -25,6 +26,7 @@ interface AuditData {
   report: any | null;
   error: string | null;
   gsc?: any;
+  created_at?: number;
 }
 
 export default function AuditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -97,15 +99,11 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
 
       {/* In progress */}
       {(data.status === "pending" || data.status === "running") && (
-        <div className="card">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-full bg-warning animate-pulse" />
-            <h3 className="font-medium text-sm">Analyzing</h3>
-          </div>
-          <pre className="code text-[11px] max-h-72 bg-bg text-muted border border-border">
-            {data.logs.join("\n") || "Starting..."}
-          </pre>
-        </div>
+        <AuditProgress
+          logs={data.logs}
+          status={data.status}
+          startedAt={data.created_at || Date.now()}
+        />
       )}
 
       {data.status === "failed" && (
