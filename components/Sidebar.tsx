@@ -25,10 +25,10 @@ import {
 
 const sections = [
   {
-    label: "Workspace",
+    label: "Workflow",
     items: [
-      { href: "/", label: "Audits", icon: LayoutDashboard },
-      { href: "/setup", label: "Setup", icon: Settings },
+      { href: "/setup", label: "1. Setup", icon: Settings },
+      { href: "/", label: "2. Audits", icon: LayoutDashboard },
       { href: "/tools", label: "All tools", icon: Sparkles },
     ],
   },
