@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* RGB triplets so opacity modifiers (text-ink/50, ring-ink/10) work */
+  --bg-rgb: 250 250 249;
+  --surface-rgb: 255 255 255;
+  --ink-rgb: 10 10 10;
+  --muted-rgb: 115 115 115;
+  --subtle-rgb: 163 163 163;
+  --border-rgb: 231 229 228;
+  --accent-rgb: 10 10 10;
+  --accent-hover-rgb: 38 38 38;
+  --success-rgb: 22 163 74;
+  --warning-rgb: 217 119 6;
+  --danger-rgb: 220 38 38;
+
+  /* Plain CSS use (var(--bg)) */
+  --bg: rgb(var(--bg-rgb));
+  --surface: rgb(var(--surface-rgb));
+  --ink: rgb(var(--ink-rgb));
+  --muted: rgb(var(--muted-rgb));
+  --subtle: rgb(var(--subtle-rgb));
+  --border: rgb(var(--border-rgb));
+  --accent: rgb(var(--accent-rgb));
+  --accent-hover: rgb(var(--accent-hover-rgb));
+  --success: rgb(var(--success-rgb));
+  --warning: rgb(var(--warning-rgb));
+  --danger: rgb(var(--danger-rgb));
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+  font-feature-settings: 'cv11', 'ss01';
+  letter-spacing: -0.011em;
+}
+
+::selection {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+@layer components {
+  /* Typography */
+  .h-display {
+    @apply font-serif text-4xl md:text-5xl tracking-tight;
+    line-height: 1.1;
+  }
+  .h-title {
+    @apply font-serif text-2xl md:text-3xl tracking-tight;
+    line-height: 1.2;
+  }
+  .h-section {
+    @apply font-sans text-sm font-medium tracking-wider uppercase text-muted;
+  }
+  .text-eyebrow {
+    @apply text-xs font-medium tracking-wider uppercase text-muted;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 select-none;
+  }
+  .btn-primary {
+    @apply bg-ink text-bg hover:bg-accent-hover active:scale-[0.98];
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.1) inset, 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+  .btn-secondary {
+    @apply bg-surface border border-border text-ink hover:bg-bg active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply text-muted hover:text-ink hover:bg-bg active:scale-[0.98];
+  }
+  .btn-danger {
+    @apply bg-danger text-white hover:opacity-90;
+  }
+  .btn:disabled {
+    @apply opacity-40 cursor-not-allowed active:scale-100;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full px-3.5 py-2.5 bg-surface border border-border rounded-lg text-sm
+           focus:outline-none focus:ring-2 focus:ring-ink/10 focus:border-ink/30
+           transition-all duration-150 placeholder:text-subtle;
+  }
+  .input-lg {
+    @apply input px-4 py-3 text-base;
+  }
+  textarea.input {
+    @apply font-mono leading-relaxed;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-surface border border-border rounded-xl p-6 transition-all duration-200;
+  }
+  .card-hover {
+    @apply card hover:border-ink/20 hover:shadow-elevated cursor-pointer;
+  }
+  .card-elevated {
+    @apply card shadow-soft;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border;
+  }
+  .badge-default {
+    @apply badge bg-bg border-border text-muted;
+  }
+  .badge-success {
+    @apply badge bg-green-50 border-green-200 text-green-700;
+  }
+  .badge-warning {
+    @apply badge bg-amber-50 border-amber-200 text-amber-700;
+  }
+  .badge-danger {
+    @apply badge bg-red-50 border-red-200 text-red-700;
+  }
+  .badge-info {
+    @apply badge bg-blue-50 border-blue-200 text-blue-700;
+  }
+
+  /* Score colors */
+  .score-good { color: var(--success); }
+  .score-warn { color: var(--warning); }
+  .score-bad  { color: var(--danger); }
+
+  /* Code blocks */
+  pre.code {
+    @apply font-mono text-xs leading-relaxed bg-ink text-bg p-4 rounded-lg overflow-auto;
+  }
+
+  /* Skeleton loader */
+  .skeleton {
+    @apply rounded bg-gradient-to-r from-border via-bg to-border bg-[length:200%_100%] animate-shimmer;
+  }
+}
+
+/* Subtle hero gradient */
+.hero-gradient {
+  background: radial-gradient(ellipse at top, rgba(120, 119, 198, 0.10), transparent 60%),
+              radial-gradient(ellipse at bottom right, rgba(255, 154, 142, 0.08), transparent 60%);
+}
