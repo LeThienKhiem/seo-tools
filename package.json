@@ -5,8 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node --experimental-sqlite node_modules/next/dist/bin/next start",
     "lint": "next lint"
+  },
+  "engines": {
+    "node": ">=22.5.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

@@ -52,116 +52,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_actions_audit ON actions(audit_id);
 `);
 
-// Add columns to existing audits table if they don't exist (migration)
-try {
-  db.exec(`ALTER TABLE audits ADD COLUMN gsc_data TEXT`);
-} catch {}
-try {
-  db.exec(`ALTER TABLE audits ADD COLUMN parent_audit_id TEXT`);
-} catch {}
-
-/* ── Settings ───────────────────────────────────────── */
-
-export function setSetting(key: string, value: string) {
-  db.prepare(
-    `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
-     ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`
-  ).run(key, value, Date.now());
-}
-export function getSetting(key: string): string | null {
-  const row = db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as
-    | { value: string }
-    | undefined;
-  return row?.value || null;
-}
-export function listSettings(): Record<string, string> {
-  const rows = db.prepare(`SELECT key, value FROM settings`).all() as Array<{
-    key: string;
-    value: string;
-  }>;
-  const map: Record<string, string> = {};
-  for (const r of rows) map[r.key] = r.value;
-  return map;
-}
-
-/* ── Actions ────────────────────────────────────────── */
-
-export function createAction(
-  id: string,
-  auditId: string,
-  issueIdx: number,
-  payload: unknown
-) {
-  db.prepare(
-    `INSERT INTO actions (id, audit_id, issue_idx, status, payload, created_at) VALUES (?, ?, ?, 'pending', ?, ?)`
-  ).run(id, auditId, issueIdx, JSON.stringify(payload), Date.now());
-}
-export function updateActionStatus(id: string, status: string, notes?: string) {
-  db.prepare(
-    `UPDATE actions SET status = ?, notes = ?, completed_at = ? WHERE id = ?`
-  ).run(status, notes || null, status === "completed" ? Date.now() : null, id);
-}
-export function listActionsByAudit(auditId: string) {
-  return db
-    .prepare(`SELECT * FROM actions WHERE audit_id = ? ORDER BY issue_idx ASC`)
-    .all(auditId) as Array<{
-    id: string;
-    audit_id: string;
-    issue_idx: number;
-    status: string;
-    payload: string;
-    notes: string | null;
-    completed_at: number | null;
-    created_at: number;
-  }>;
-}
-
-/* ── GSC ────────────────────────────────────────────── */
-
-export function attachGscData(auditId: string, data: unknown) {
-  db.prepare(`UPDATE audits SET gsc_data = ?, updated_at = ? WHERE id = ?`).run(
-    JSON.stringify(data),
-    Date.now(),
-    auditId
-  );
-}
-
-/* ── Audit lineage ──────────────────────────────────── */
-
-export function listAuditsForUrl(url: string) {
-  return db
-    .prepare(`SELECT * FROM audits WHERE url = ? ORDER BY created_at DESC`)
-    .all(url) as AuditRow[];
-}
-export function setParent(childId: string, parentId: string) {
-  db.prepare(`UPDATE audits SET parent_audit_id = ? WHERE id = ?`).run(
-    parentId,
-    childId
-  );
-}
-
-export function saveBaseline(id: string, url: string, label: string, snapshot: unknown) {
-  db.prepare(
-    `INSERT INTO baselines (id, url, label, snapshot, created_at) VALUES (?, ?, ?, ?, ?)`
-  ).run(id, url, label, JSON.stringify(snapshot), Date.now());
-}
-export function listBaselines(url?: string) {
-  if (url) {
-    return db
-      .prepare(`SELECT id, url, label, created_at FROM baselines WHERE url = ? ORDER BY created_at DESC`)
-      .all(url) as Array<{ id: string; url: string; label: string; created_at: number }>;
-  }
-  return db
-    .prepare(`SELECT id, url, label, created_at FROM baselines ORDER BY created_at DESC LIMIT 100`)
-    .all() as Array<{ id: string; url: string; label: string; created_at: number }>;
-}
-export function getBaseline(id: string) {
-  const row = db
-    .prepare(`SELECT * FROM baselines WHERE id = ?`)
-    .get(id) as { id: string; url: string; label: string; snapshot: string; created_at: number } | undefined;
-  if (!row) return null;
-  return { ...row, snapshot: JSON.parse(row.snapshot) };
-}
+// Migration for existing DBs
+try { db.exec(`ALTER TABLE audits ADD COLUMN gsc_data TEXT`); } catch {}
+try { db.exec(`ALTER TABLE audits ADD COLUMN parent_audit_id TEXT`); } catch {}
 
 export type AuditStatus = "pending" | "running" | "completed" | "failed";
 
@@ -174,7 +67,12 @@ export interface AuditRow {
   report: string | null;
   logs: string | null;
   error: string | null;
+  gsc_data?: string | null;
+  parent_audit_id?: string | null;
 }
+
+// Helper to cast node:sqlite results
+const cast = <T>(v: unknown): T => v as T;
 
 export function createAudit(id: string, url: string) {
   const now = Date.now();
@@ -192,9 +90,9 @@ export function updateAuditStatus(id: string, status: AuditStatus) {
 }
 
 export function appendLog(id: string, line: string) {
-  const row = db.prepare(`SELECT logs FROM audits WHERE id = ?`).get(id) as
-    | { logs: string }
-    | undefined;
+  const row = cast<{ logs: string } | undefined>(
+    db.prepare(`SELECT logs FROM audits WHERE id = ?`).get(id)
+  );
   const logs: string[] = row?.logs ? JSON.parse(row.logs) : [];
   logs.push(`[${new Date().toISOString()}] ${line}`);
   db.prepare(`UPDATE audits SET logs = ?, updated_at = ? WHERE id = ?`).run(
@@ -217,13 +115,102 @@ export function saveError(id: string, error: string) {
 }
 
 export function getAudit(id: string): AuditRow | undefined {
-  return db.prepare(`SELECT * FROM audits WHERE id = ?`).get(id) as
-    | AuditRow
-    | undefined;
+  return cast<AuditRow | undefined>(
+    db.prepare(`SELECT * FROM audits WHERE id = ?`).get(id)
+  );
 }
 
 export function listAudits(limit = 50): AuditRow[] {
-  return db
-    .prepare(`SELECT * FROM audits ORDER BY created_at DESC LIMIT ?`)
-    .all(limit) as AuditRow[];
+  return cast<AuditRow[]>(
+    db.prepare(`SELECT * FROM audits ORDER BY created_at DESC LIMIT ?`).all(limit)
+  );
+}
+
+/* ── Baselines ───────────────────────────────────── */
+
+export function saveBaseline(id: string, url: string, label: string, snapshot: unknown) {
+  db.prepare(
+    `INSERT INTO baselines (id, url, label, snapshot, created_at) VALUES (?, ?, ?, ?, ?)`
+  ).run(id, url, label, JSON.stringify(snapshot), Date.now());
+}
+export function listBaselines(url?: string) {
+  type Row = { id: string; url: string; label: string; created_at: number };
+  if (url) {
+    return cast<Row[]>(
+      db.prepare(`SELECT id, url, label, created_at FROM baselines WHERE url = ? ORDER BY created_at DESC`).all(url)
+    );
+  }
+  return cast<Row[]>(
+    db.prepare(`SELECT id, url, label, created_at FROM baselines ORDER BY created_at DESC LIMIT 100`).all()
+  );
+}
+export function getBaseline(id: string) {
+  type Row = { id: string; url: string; label: string; snapshot: string; created_at: number };
+  const row = cast<Row | undefined>(db.prepare(`SELECT * FROM baselines WHERE id = ?`).get(id));
+  if (!row) return null;
+  return { ...row, snapshot: JSON.parse(row.snapshot) };
+}
+
+/* ── Settings ───────────────────────────────────── */
+
+export function setSetting(key: string, value: string) {
+  db.prepare(
+    `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`
+  ).run(key, value, Date.now());
+}
+export function getSetting(key: string): string | null {
+  const row = cast<{ value: string } | undefined>(
+    db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key)
+  );
+  return row?.value || null;
+}
+export function listSettings(): Record<string, string> {
+  const rows = cast<Array<{ key: string; value: string }>>(
+    db.prepare(`SELECT key, value FROM settings`).all()
+  );
+  const map: Record<string, string> = {};
+  for (const r of rows) map[r.key] = r.value;
+  return map;
+}
+
+/* ── Actions ────────────────────────────────────── */
+
+export function createAction(id: string, auditId: string, issueIdx: number, payload: unknown) {
+  db.prepare(
+    `INSERT INTO actions (id, audit_id, issue_idx, status, payload, created_at) VALUES (?, ?, ?, 'pending', ?, ?)`
+  ).run(id, auditId, issueIdx, JSON.stringify(payload), Date.now());
+}
+export function updateActionStatus(id: string, status: string, notes?: string) {
+  db.prepare(
+    `UPDATE actions SET status = ?, notes = ?, completed_at = ? WHERE id = ?`
+  ).run(status, notes || null, status === "completed" ? Date.now() : null, id);
+}
+export function listActionsByAudit(auditId: string) {
+  type Row = {
+    id: string; audit_id: string; issue_idx: number; status: string;
+    payload: string; notes: string | null; completed_at: number | null; created_at: number;
+  };
+  return cast<Row[]>(
+    db.prepare(`SELECT * FROM actions WHERE audit_id = ? ORDER BY issue_idx ASC`).all(auditId)
+  );
+}
+
+/* ── GSC ────────────────────────────────────────── */
+
+export function attachGscData(auditId: string, data: unknown) {
+  db.prepare(`UPDATE audits SET gsc_data = ?, updated_at = ? WHERE id = ?`).run(
+    JSON.stringify(data), Date.now(), auditId
+  );
+}
+
+/* ── Audit lineage ──────────────────────────────── */
+
+export function listAuditsForUrl(url: string): AuditRow[] {
+  return cast<AuditRow[]>(
+    db.prepare(`SELECT * FROM audits WHERE url = ? ORDER BY created_at DESC`).all(url)
+  );
+}
+export function setParent(childId: string, parentId: string) {
+  db.prepare(`UPDATE audits SET parent_audit_id = ? WHERE id = ?`).run(parentId, childId);
 }
