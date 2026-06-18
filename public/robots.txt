@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /
+
+# This is an internal SEO tool — block all crawlers by default.
