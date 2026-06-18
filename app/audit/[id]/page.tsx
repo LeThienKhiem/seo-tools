@@ -29,26 +29,46 @@ interface AuditData {
   created_at?: number;
 }
 
+interface AuditState {
+  data: AuditData | null;
+  notFound: boolean;
+}
+
 export default function AuditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [data, setData] = useState<AuditData | null>(null);
+  const [state, setState] = useState<AuditState>({ data: null, notFound: false });
   const [gsc, setGsc] = useState<any>(null);
   const [uploadingGsc, setUploadingGsc] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
+    let cancelled = false;
     const load = async () => {
-      const res = await fetch(`/api/audit/${id}`);
-      const d = await res.json();
-      setData(d);
-      if (d.status === "pending" || d.status === "running") {
-        timer = setTimeout(load, 2000);
+      try {
+        const res = await fetch(`/api/audit/${id}`);
+        if (cancelled) return;
+        if (res.status === 404) {
+          setState({ data: null, notFound: true });
+          return; // stop polling
+        }
+        const d = await res.json();
+        setState({ data: d, notFound: false });
+        if (d.status === "pending" || d.status === "running") {
+          timer = setTimeout(load, 2000);
+        }
+      } catch {
+        // network error — retry after delay
+        timer = setTimeout(load, 4000);
       }
     };
     load();
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [id]);
+  const data = state.data;
 
   const uploadGsc = async (file: File) => {
     setUploadingGsc(true);
@@ -66,6 +86,25 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
       setUploadingGsc(false);
     }
   };
+
+  if (state.notFound) {
+    return (
+      <div>
+        <div className="card text-center py-16">
+          <AlertCircle size={32} className="text-muted mx-auto mb-3" />
+          <h1 className="font-serif text-2xl mb-2">Không tìm thấy audit</h1>
+          <p className="text-sm text-muted max-w-md mx-auto mb-6">
+            Audit <code className="text-xs bg-bg px-1 rounded">{id.slice(0, 8)}…</code> không tồn tại
+            hoặc đã bị xóa. Lý do thường gặp: container restart mà chưa setup persistent volume,
+            hoặc database đã bị clean.
+          </p>
+          <a href="/" className="btn btn-primary">
+            ← Về trang chủ chạy audit mới
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   if (!data) {
     return (
